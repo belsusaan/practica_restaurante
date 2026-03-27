@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TableFlow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-50 min-h-screen">
+    <nav class="bg-indigo-600 text-white shadow-lg">
+      <div class="max-w-7xl mx-auto px-4">
+        <div class="flex justify-between h-16 items-center">
+          <div class="flex items-center space-x-8">
+            <span class="text-xl font-bold tracking-tight">TableFlow</span>
+            {% if session.get('token') %}
+            <div class="hidden md:flex space-x-4">
+              <a
+                href="{{ url_for('dashboard') }}"
+                class="hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium"
+                >Dashboard</a
+              >
+              <a
+                href="{{ url_for('menu') }}"
+                class="hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium"
+                >Menú</a
+              >
+              <a
+                href="{{ url_for('orders') }}"
+                class="hover:bg-indigo-700 px-3 py-2 rounded-md text-sm font-medium"
+                >Todas las Órdenes</a
+              >
+            </div>
+            {% endif %}
+          </div>
+          <div>
+            {% if session.get('token') %}
+            <div class="flex items-center space-x-4">
+              <span class="text-indigo-100 text-sm italic"
+                >{{ session.get('username') }}</span
+              >
+              <a
+                href="{{ url_for('logout') }}"
+                class="bg-indigo-500 hover:bg-red-500 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                >Cerrar Sesión</a
+              >
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <div
+      id="notification-toast"
+      class="fixed bottom-5 right-5 hidden bg-indigo-800 text-white px-6 py-4 rounded-lg shadow-2xl z-50 border-l-4 border-yellow-400 animate-bounce"
+    ></div>
+
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, message in messages %}
+      <div
+        class="mb-4 p-4 rounded-md {% if category == 'error' %}bg-red-100 text-red-700 border border-red-200{% else %}bg-green-100 text-green-700 border border-green-200{% endif %}"
+      >
+        {{ message }}
+      </div>
+      {% endfor %} {% endif %} {% endwith %} {% block content %}{% endblock %}
+    </main>
+
+    <script>
+      const token = "{{ session.get('token', '') }}";
+      if (token) {
+        const socket = new WebSocket(
+          `ws://localhost:8000/ws/notifications?token=${token}`,
+        );
+
+        socket.onmessage = function (event) {
+          const data = JSON.parse(event.data);
+          const toast = document.getElementById("notification-toast");
+
+          toast.innerText = data.title + ": " + data.message;
+          toast.classList.remove("hidden");
+
+          setTimeout(() => {
+            toast.classList.add("hidden");
+          }, 5000);
+        };
+
+        socket.onclose = function () {
+          console.log("WebSocket connection closed");
+        };
+      }
+    </script>
+  </body>
+</html>

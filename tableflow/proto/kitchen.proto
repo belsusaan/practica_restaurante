@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package kitchen;
+
+// Internal gRPC contract between the FastAPI backend (client)
+// and the Kitchen microservice (server).
+service KitchenService {
+
+// Called when a waiter submits a new order.
+// The kitchen service enqueues the order and acknowledges receipt.
+rpc SubmitOrder (OrderRequest) returns (OrderAck);
+
+// Called when any user requests a status change on an order.
+// The kitchen service validates the transition; the backend only
+// persists the new status if the response carries success = true.
+rpc UpdateOrderStatus (UpdateStatusRequest) returns (StatusResponse);
+}
+
+message OrderRequest {
+int32 order_id     = 1;
+int32 table_number = 2;
+}
+
+message OrderAck {
+int32 order_id = 1;
+bool  accepted = 2;
+}
+
+message UpdateStatusRequest {
+int32  order_id = 1;
+string status   = 2;   // "preparing" | "ready" | "delivered" | "cancelled"
+}
+
+message StatusResponse {
+int32  order_id = 1;
+string status   = 2;
+bool   success  = 3;
+}
