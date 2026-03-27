@@ -2,13 +2,17 @@ from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-
+from app import models
+import os
 from app.config import settings
 from app.repositories import user_repo
 from app.schemas.user import UserCreate
 from app.schemas.token import TokenData
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+SECRET_KEY = os.getenv("SECRET_KEY", "tu_llave_secreta_super_segura")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 
 # hashing
@@ -21,15 +25,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 # Token
-def create_access_token(user_id: int) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(
-        minutes=settings.token_expire_minutes
-    )
-    to_encode = {"exp": expire, "sub": str(user_id)}
-    encoded_jwt = jwt.encode(
-        to_encode, settings.secret_key, algorithm=settings.algorithm
-    )
-    return encoded_jwt
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=30)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> TokenData:
@@ -39,10 +39,10 @@ def decode_token(token: str) -> TokenData:
         )
         user_id: str = payload.get("sub")
         if user_id is None:
-            raise JWTError()
+            return None
         return TokenData(user_id=int(user_id))
-    except JWTError:
-        raise JWTError("Could not validate credentials")
+    except (jwt.JWTError, ValueError):
+        return None
 
 
 # Bussines oprerations
@@ -58,8 +58,14 @@ def register(db: Session, user_data: UserCreate):
     )
 
 
-def login(db: Session, username: str, password: str) -> str | None:
+def login(db: Session, username: str, password: str):
     user = user_repo.get_by_username(db, username)
-    if not user or not verify_password(password, user.password_hash):
+    if not user:
         return None
-    return create_access_token(user.id)
+
+    es_valida = verify_password(password, user.password_hash)
+
+    if not es_valida:
+        return None
+
+    return user

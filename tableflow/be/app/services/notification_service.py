@@ -25,7 +25,7 @@ async def push(user_id: int, payload_dict: dict):
             unregister_ws(user_id)
 
 
-def send(
+async def send(
     db: Session,
     user_id: int,
     title: str,
@@ -51,8 +51,7 @@ def send(
         "created_at": notification.created_at.isoformat(),
     }
 
-    asyncio.ensure_future(push(user_id, payload))
-
+    await push(user_id, payload)
     return notification
 
 

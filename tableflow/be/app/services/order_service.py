@@ -4,7 +4,7 @@ from app.services import kitchen_grpc_client, notification_service
 from app.schemas.order import OrderCreate
 
 
-def place_order(db: Session, waiter_id: int, data: OrderCreate):
+async def place_order(db: Session, waiter_id: int, data: OrderCreate):
     items_dicts = []
     for item in data.items:
         menu_item = menu_item_repo.get_by_id(db, item.menu_item_id)
@@ -22,15 +22,16 @@ def place_order(db: Session, waiter_id: int, data: OrderCreate):
 
     order = order_repo.create(db, waiter_id, data.table_number, data.notes, items_dicts)
 
-    accepted = kitchen_grpc_client.submit_order(order.id, order.table_number)
-    if not accepted:
-        return None
+    try:
+        kitchen_grpc_client.submit_order(order.id, order.table_number)
+    except Exception as e:
+        print(f"Alerta: La orden {order.id} se guardó pero la cocina no respondió: {e}")
 
-    notification_service.send(
+    await notification_service.send(
         db,
         user_id=waiter_id,
         title="Orden Recibida",
-        message=f"La orden para la mesa {order.table_number} ha sido enviada a cocina.",
+        message=f"La orden #{order.id} ha sido procesada.",
         ntype="order_received",
         related_order_id=order.id,
     )
@@ -53,9 +54,10 @@ def update_order_status(
     if not order:
         return None
 
-    success = kitchen_grpc_client.update_order_status(order_id, new_status)
-    if not success:
-        return None
+    try:
+        kitchen_grpc_client.update_order_status(order_id, new_status)
+    except Exception as e:
+        print(f"No se pudo sincronizar el estado con la cocina: {e}")
 
     updated_order = order_repo.update_status(db, order, new_status)
 

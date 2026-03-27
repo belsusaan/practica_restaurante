@@ -3,7 +3,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = "frontend_secret_key"
-API = os.getenv("API_BASE_URL", "http://localhost:8000")
+API = os.getenv("API_BASE_URL", "http://be:8000")
 
 
 def auth_headers():
@@ -25,30 +25,44 @@ def register():
             "password": request.form.get("password"),
             "full_name": request.form.get("full_name"),
         }
-        resp = requests.post(f"{API}/auth/register", json=data)
-        if resp.status_code == 201:
-            flash("Registration successful! Please login.", "success")
-            return redirect(url_for("login"))
-        else:
-            flash(resp.json().get("detail", "Registration failed"), "error")
+        try:
+            resp = requests.post(f"{API}/auth/register", json=data)
+
+            if resp.status_code == 201:
+                flash("¡Registro exitoso! Ya puedes iniciar sesión.", "success")
+                return redirect(url_for("login"))
+            else:
+                try:
+                    msg = resp.json().get("detail", "Error en el registro")
+                except:
+                    msg = f"Error del servidor ({resp.status_code})"
+                flash(msg, "error")
+        except:
+            flash("No se pudo conectar con el Backend", "error")
+
     return render_template("register.html")
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        data = {
+        login_payload = {
             "username": request.form.get("username"),
             "password": request.form.get("password"),
         }
-        resp = requests.post(f"{API}/auth/login", json=data)
-        if resp.status_code == 200:
-            res_json = resp.json()
-            session["token"] = res_json.get("access_token")
-            session["username"] = request.form.get("username")
-            return redirect(url_for("dashboard"))
-        else:
-            flash("Invalid credentials", "error")
+
+        try:
+            resp = requests.post(f"{API}/auth/login", json=login_payload)
+
+            if resp.status_code == 200:
+                token_data = resp.json()
+                session["token"] = token_data.get("access_token")
+                session["username"] = login_payload["username"]
+                return redirect(url_for("dashboard"))
+            else:
+                flash("Usuario o contraseña incorrectos (Error 401)", "error")
+        except:
+            flash("Error de conexión con el servidor", "error")
     return render_template("login.html")
 
 
@@ -80,6 +94,7 @@ def menu():
 def menu_add():
     if "token" not in session:
         return redirect(url_for("login"))
+
     if request.method == "POST":
         data = {
             "name": request.form.get("name"),
@@ -87,12 +102,24 @@ def menu_add():
             "price": float(request.form.get("price")),
             "category": request.form.get("category"),
         }
-        resp = requests.post(f"{API}/menu/", json=data, headers=auth_headers())
-        if resp.status_code == 201:
-            flash("Item added successfully!", "success")
-            return redirect(url_for("menu"))
-        else:
-            flash(resp.json().get("detail", "Error adding item"), "error")
+
+        try:
+            resp = requests.post(f"{API}/menu/", json=data, headers=auth_headers())
+
+            if resp.status_code == 201:
+                flash("¡Plato agregado exitosamente!", "success")
+                return redirect(url_for("menu"))
+            else:
+                try:
+                    error_msg = resp.json().get("detail", "Error al crear el plato")
+                except:
+                    error_msg = (
+                        f"Error interno del servidor (Código {resp.status_code})"
+                    )
+                flash(error_msg, "error")
+        except:
+            flash("Error de conexión al intentar agregar el plato", "error")
+
     return render_template("add_menu_item.html")
 
 

@@ -9,12 +9,12 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 @router.post("/", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
-def place_order(
+async def place_order(
     order_data: OrderCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    order = order_service.place_order(db, current_user.id, order_data)
+    order = await order_service.place_order(db, current_user.id, order_data)
     if not order:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

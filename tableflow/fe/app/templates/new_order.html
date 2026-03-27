@@ -60,7 +60,7 @@
               {{ item.category }}
             </p>
             <p class="text-sm text-gray-500">
-              ${{ "%.2f"|format(item.price) }}
+              ${{ "%.2f"|format(item.price|float) }}
             </p>
           </div>
           <div class="flex items-center space-x-3">
